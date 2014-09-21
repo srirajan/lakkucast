@@ -9,6 +9,7 @@ import re
 import sys 
 from thread import start_new_thread
 from struct import pack
+from random import randint
 
 class lakkucast:
     def __init__(self):
@@ -17,13 +18,14 @@ class lakkucast:
         self.protocolVersion = 0
         self.source_id = "sender-0"
         self.destination_id = "receiver-0"
-        self.chromecast_server = "192.168.1.197"
+        self.chromecast_server = "192.168.1.197" #living room audio
         self.socket = 0
         self.type_enum = 0
         self.type_string = 2
         self.type_bytes = self.type_string
         self.session = 0
         self.play_state = None
+        self.media_dirs = ["/data/media/TV-Shows/English/Friends", "/data/media/TV-Shows/English/That 70s Show"]
 
     def clean(self,s):
         return re.sub(r'[\x00-\x1F\x7F]', '?',s)
@@ -139,9 +141,10 @@ class lakkucast:
         print "play state:" , self.play_state
 
     def ready_to_play(self):
+        print self.status
         if self.status == "Now Casting":
             return False
-        if self.status == "Ready To Cast":
+        if self.status == "Ready To Cast" or self.status == None:
             if self.play_state == None:
                 return True
             if self.play_state == "IDLE":
@@ -276,6 +279,10 @@ class lakkucast:
         #   socket.close()
         #   print "socket closed"
 
+        def random_play(self, num_play):
+            rand_main = randint(0, (len(self.media_dirs)-1))
+            if os.path.isdir(self.media_dirs[rand_main]):
+                for x in xrange(1, num_play ):
 
 
 if __name__ == '__main__':
