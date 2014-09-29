@@ -1,5 +1,6 @@
 #!/usr/bin/python
 #credits : https://gist.github.com/TheCrazyT/11263599
+# https://github.com/scsmith/lightwaverf-rb/blob/master/lib/lightwave_rf.rb
 
 import socket
 import ssl
@@ -10,6 +11,11 @@ import sys
 from thread import start_new_thread
 from struct import pack
 from random import randint
+import os
+import fnmatch
+import argparse
+import logging
+
 
 class lakkucast:
     def __init__(self):
@@ -18,14 +24,14 @@ class lakkucast:
         self.protocolVersion = 0
         self.source_id = "sender-0"
         self.destination_id = "receiver-0"
-        self.chromecast_server = "192.168.1.197" #living room audio
+        self.chromecast_server = "192.168.1.23" #living room audio
         self.socket = 0
         self.type_enum = 0
         self.type_string = 2
         self.type_bytes = self.type_string
         self.session = 0
         self.play_state = None
-        self.media_dirs = ["/data/media/TV-Shows/English/Friends", "/data/media/TV-Shows/English/That 70s Show"]
+        self.sleep_between_media = 5
 
     def clean(self,s):
         return re.sub(r'[\x00-\x1F\x7F]', '?',s)
@@ -137,14 +143,22 @@ class lakkucast:
             self.play_state = m3.group("play_state")
 
     def get_status(self):
-        print "status: " , self.status
-        print "play state:" , self.play_state
+        if self.status == None:
+            status_str = "None"
+        else:
+            status_str = self.status
+
+        if self.play_state == None:
+            play_state_str = "None"
+        else:
+            play_state_str = self.play_state
+
+        return " ".join(["main_status:" , status_str , "play_status:" , play_state_str])
 
     def ready_to_play(self):
-        print self.status
         if self.status == "Now Casting":
             return False
-        if self.status == "Ready To Cast" or self.status == None:
+        if self.status == "Ready To Cast" or self.status == None or self.status == "Chromecast Home Screen":
             if self.play_state == None:
                 return True
             if self.play_state == "IDLE":
@@ -279,34 +293,105 @@ class lakkucast:
         #   socket.close()
         #   print "socket closed"
 
-        def random_play(self, num_play):
-            rand_main = randint(0, (len(self.media_dirs)-1))
-            if os.path.isdir(self.media_dirs[rand_main]):
-                for x in xrange(1, num_play ):
 
+class lakkucast_media:
+    def __init__(self):
+        #self.media_dirs = ["/data/media/TV-Shows/English/Friends", "/data/media/TV-Shows/English/That 70s Show"]
+        self.top_dir = "/data"
+        self.top_url = "http://192.168.1.98"
+        self.media_dirs = ["media/test/sample1", "media/test/sample2"]
+        self.media_data = "/data/webapps/lakku/lakkucast/media.dat"
+
+    def random_play(self, num_play):
+        while True:
+            rand_main = randint(0, (len(self.media_dirs)-1))
+            url_list = []
+            sel_dir = os.path.join(self.top_dir, self.media_dirs[rand_main])
+            if os.path.isdir(sel_dir):
+                matches = []
+                for root, dirnames, filenames in os.walk(sel_dir):
+                    for filename in fnmatch.filter(filenames, '*.mp4'):
+                        matches.append(os.path.join(root, filename).replace(self.top_dir,''))
+                count = 1
+                loop_count = 1
+                while count <= num_play:
+                    file_rand = randint(0, (len(matches)-1))
+                    file_name = "".join([self.top_url , matches[file_rand]])
+                    if self.played_before(file_name) == False:
+                        url_list.append(file_name)
+                        count = count + 1
+                    loop_count = loop_count + 1 
+                    if loop_count == (len(matches)-1):
+                        break
+                if count < num_play:
+                    continue
+                else:
+                    fhand = open(self.media_data, 'a+')
+                    for u in url_list:
+                        fhand.write(u+'\n')
+                    fhand.close()
+                    return url_list
+
+    def played_before(self, media_name):
+        fhand = open(self.media_data)
+        for line in fhand:  
+            if re.search("\b{0}\b".format(media_name),line): 
+                print line
+                fhand.close()
+                return True
+        fhand.close()
+        return False
+
+    def reset_media_history(self):
+        fhand = open(self.media_data, 'w')
+        fhand.truncate()
+        fhand.close()
+  
 
 if __name__ == '__main__':
-    l = lakkucast()
-    l.init_status()
-    url = "http://192.168.1.98/media/Other-Videos/big_buck_bunny.mp4"
-    print url
-    if l.ready_to_play():
-        l.play_url(url)
-    else:
-        print "not ready"
-    l.get_status()
-    print "Waiting."
-    time.sleep(2)
-    l.init_status()
-    l.get_status()
-    while not l.ready_to_play():
+    parser = argparse.ArgumentParser(description="lakkucast")
+    parser.add_argument("--play", help="Play x videos ")
+    parser.add_argument("--stop", help="Stop playing and reset", action='store_true')
+    parser.add_argument("--reset_media_history", help="Reset media history", action='store_true')
+
+    args = parser.parse_args()
+
+    log_file = "/data/webapps/lakku/lakkucast/lakkucast.log"
+    log_level = logging.INFO
+    logging.basicConfig(filename=log_file, level=log_level,
+                        format='%(asctime)s [%(levelname)s] %(message)s')
+
+    logging.info("Starting lakkucast.")
+
+    if args.play:
+        num_play = int(args.play)
+        logging.info("Play count: %s"
+                % (args.play))
+ 
+        lm = lakkucast_media()
+        for u in lm.random_play(num_play):
+            l = lakkucast()
+            l.init_status()
+            logging.info(l.get_status())
+            if l.ready_to_play():
+                logging.info("Playing URL: %s"
+                % (u))
+                l.play_url(u)
+            l.init_status()
+            logging.info(l.get_status())
+            while not l.ready_to_play():
+                l.init_status()
+                logging.info(l.get_status())
+                time.sleep(l.sleep_between_media)
+
+    if args.stop:
+        l = lakkucast()
         l.init_status()
-        l.get_status()
-        time.sleep(15)
-        #print ".",
-    print "\n"
-    url = "http://192.168.1.98/media/Music-Videos/Indian/Item%20Songs/%e2%80%aaKhallas.mp4"
-    print url
-    l = lakkucast()
-    l.init_status()
-    l.play_url(url)
+        logging.info("Calling stop")
+        logging.info(l.get_status())
+        l.play_url("http://192.168.1.98/media/test/water.mp4")
+
+    if args.reset_media_history:
+        logging.info("Calling Reset media history")
+        lm = lakkucast_media()
+        lm.reset_media_history()
