@@ -320,11 +320,14 @@ class lakkucast_media:
         self.image_dir = "/data/media/Pictures/mypics/album/"
 
     def random_play(self, num_play):
-        while True:
+        count_dir = 0
+        num_dirs = len(self.media_dirs)
+        while count_dir < num_dirs:
             rand_main = randint(0, (len(self.media_dirs)-1))
             url_list = []
             sel_dir = os.path.join(self.top_dir, self.media_dirs[rand_main])
             if os.path.isdir(sel_dir):
+                count_dir = count_dir + 1
                 matches = []
                 for root, dirnames, filenames in os.walk(sel_dir):
                     for filename in fnmatch.filter(filenames, '*.mp4'):
@@ -335,8 +338,9 @@ class lakkucast_media:
                     file_rand = randint(0, (len(matches)-1))
                     file_name = "".join([self.top_url , matches[file_rand]])
                     if self.played_before(file_name) == False:
-                        url_list.append(file_name)
-                        count = count + 1
+                        if file_name not in url_list:
+                            url_list.append(file_name)
+                            count = count + 1
                     loop_count = loop_count + 1 
                     if loop_count == (len(matches)-1):
                         break
@@ -350,13 +354,8 @@ class lakkucast_media:
                     return url_list
 
     def played_before(self, media_name):
-        fhand = open(self.media_data)
-        for line in fhand:  
-            if re.search("\b{0}\b".format(media_name),line): 
-                print line
-                fhand.close()
-                return True
-        fhand.close()
+        if media_name in open(self.media_data).read():
+            return True
         return False
 
     def reset_media_history(self):
@@ -391,24 +390,27 @@ if __name__ == '__main__':
         logging.info(lwrf.start_screen())
         lwrf.start_screen()
         time.sleep(5)
-        for u in lm.random_play(num_play):
-            l = lakkucast()
-            l.init_status()
-            logging.info(l.get_status())
-            if l.ready_to_play():
-                logging.info("Playing URL: %s"
-                % (u))
-                l.play_url(u)
-            l.init_status()
-            logging.info(l.get_status())
-            while not l.ready_to_play():
+        url_list = lm.random_play(num_play)
+        if url_list != None:
+            for u in url_list:
+                l = lakkucast()
                 l.init_status()
                 logging.info(l.get_status())
-                time.sleep(l.sleep_between_media)
-        time.sleep(5)
-        logging.info("Sending stop command to lwrf")
-        logging.info(lwrf.stop_screen())
-
+                if l.ready_to_play():
+                    logging.info("Playing URL: %s"
+                    % (u))
+                    l.play_url(u)
+                l.init_status()
+                logging.info(l.get_status())
+                while not l.ready_to_play():
+                    l.init_status()
+                    logging.info(l.get_status())
+                    time.sleep(l.sleep_between_media)
+            time.sleep(5)
+            logging.info("Sending stop command to lwrf")
+            logging.info(lwrf.stop_screen())
+        else:
+            logging.info("No urls returned by player")
 
     if args.stop:
         l = lakkucast()
