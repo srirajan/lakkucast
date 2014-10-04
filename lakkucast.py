@@ -11,6 +11,7 @@ import sys
 from thread import start_new_thread
 from struct import pack
 from random import randint
+from subprocess import call
 import os
 import fnmatch
 import argparse
@@ -293,6 +294,21 @@ class lakkucast:
         #   socket.close()
         #   print "socket closed"
 
+class manage_lightwave:
+    def __init__(self):
+        self.room = "Main\ Bedroom"
+        self.device = "Screen"
+        self.lightwave_cmd = "/usr/local/bin/lightwaverf"
+
+    def start_screen(self):
+        cmd = " ".join([self.lightwave_cmd, self.room, self.device, "on", ">cmd.log", "2>&1"])
+        os.system(cmd)
+        return(cmd)
+
+    def stop_screen(self):
+        cmd = " ".join([self.lightwave_cmd, self.room, self.device, "off", ">cmd.log", "2>&1"])
+        os.system(cmd)
+        return(cmd)
 
 class lakkucast_media:
     def __init__(self):
@@ -301,6 +317,7 @@ class lakkucast_media:
         self.top_url = "http://192.168.1.98"
         self.media_dirs = ["media/test/sample1", "media/test/sample2"]
         self.media_data = "/data/webapps/lakku/lakkucast/media.dat"
+        self.image_dir = "/data/media/Pictures/mypics/album/"
 
     def random_play(self, num_play):
         while True:
@@ -369,6 +386,11 @@ if __name__ == '__main__':
                 % (args.play))
  
         lm = lakkucast_media()
+        lwrf = manage_lightwave()
+        logging.info("Sending start command to lwrf")
+        logging.info(lwrf.start_screen())
+        lwrf.start_screen()
+        time.sleep(5)
         for u in lm.random_play(num_play):
             l = lakkucast()
             l.init_status()
@@ -383,6 +405,10 @@ if __name__ == '__main__':
                 l.init_status()
                 logging.info(l.get_status())
                 time.sleep(l.sleep_between_media)
+        time.sleep(5)
+        logging.info("Sending stop command to lwrf")
+        logging.info(lwrf.stop_screen())
+
 
     if args.stop:
         l = lakkucast()
@@ -390,6 +416,11 @@ if __name__ == '__main__':
         logging.info("Calling stop")
         logging.info(l.get_status())
         l.play_url("http://192.168.1.98/media/test/water.mp4")
+        time.sleep(10)
+        lwrf = manage_lightwave()
+        logging.info("Sending stop command to lwrf")
+        logging.info(lwrf.stop_screen())
+
 
     if args.reset_media_history:
         logging.info("Calling Reset media history")
