@@ -32,6 +32,8 @@ class lakkucast:
         self.session = 0
         self.play_state = None
         self.sleep_between_media = 5
+        self.content_id = None
+        self.socket_fail_count = 100
 
     def clean(self,s):
         return re.sub(r'[\x00-\x1F\x7F]', '?',s)
@@ -128,8 +130,12 @@ class lakkucast:
             m1 = re.search('"sessionId":"(?P<session>[^"]+)"', result)
             m2 = re.search('"statusText":"(?P<status>[^"]+)"', result)
             m3 = re.search('"playerState":"(?P<play_state>[^"]+)"', result)
+            m4 = re.search('"contentId":"(?P<content_id>[^"]+)"', result)
             count = count + 1
-            if count > 100:
+            if count > self.socket_fail_count:
+                self.status = None
+                self.play_state = None
+                self.status = None
                 break
             #print "#%i" % (m==None)
         if m1 != None:
@@ -141,19 +147,28 @@ class lakkucast:
         if m3 != None:
             #print "play_state:",m3.group("play_state")
             self.play_state = m3.group("play_state")
+        if m4 != None:
+            #print "contentid:",m4.group("content_id")
+            self.content_id = m4.group("content_id")
+
 
     def get_status(self):
+        return " ".join(["main_status:" , self.get_main_status() , "play_status:" , self.get_play_status()])
+
+    def get_main_status(self):
         if self.status == None:
             status_str = "None"
         else:
             status_str = self.status
+        return (status_str)
 
+    def get_play_status(self):
         if self.play_state == None:
             play_state_str = "None"
         else:
             play_state_str = self.play_state
+        return (play_state_str)
 
-        return " ".join(["main_status:" , status_str , "play_status:" , play_state_str])
 
     def ready_to_play(self):
         if self.status == "Now Casting":
@@ -313,8 +328,8 @@ class lakkucast_media:
     def __init__(self):
         self.top_dir = "/data"
         self.top_url = "http://192.168.1.98"
-        self.media_dirs = ["media/test/sample1", "media/test/sample2"]
-        #self.media_dirs = ["/data/media/TV-Shows/English/Friends", "/data/media/TV-Shows/English/That 70s Show"]
+        #self.media_dirs = ["media/test/sample1", "media/test/sample2"]
+        self.media_dirs = ["media/TV-Shows/English/Friends", "media/TV-Shows/English/That 70s Show"]
         self.media_data = "/data/webapps/lakku/lakkucast/media.dat"
 
     def random_play(self, num_play):
@@ -388,10 +403,12 @@ if __name__ == '__main__':
         logging.info(lwrf.start_screen())
         lwrf.start_screen()
         url_list = lm.random_play(num_play)
-        time.sleep(5)
         if url_list != None:
+            logging.info("Got %d urls to play"
+                % (len(url_list)))
             for u in url_list:
                 l = lakkucast()
+                time.sleep(l.sleep_between_media)
                 l.init_status()
                 logging.info(l.get_status())
                 if l.ready_to_play():
@@ -401,14 +418,19 @@ if __name__ == '__main__':
                 l.init_status()
                 logging.info(l.get_status())
                 while not l.ready_to_play():
+                    time.sleep(l.sleep_between_media)
                     l.init_status()
                     logging.info(l.get_status())
-                    time.sleep(l.sleep_between_media)
-            time.sleep(5)
+            time.sleep(l.sleep_between_media)
             logging.info("Sending stop command to lwrf")
             logging.info(lwrf.stop_screen())
         else:
             logging.info("No urls returned by player")
+            l.play_url("http://192.168.1.98/media/test/water.mp4")
+            time.sleep(l.sleep_between_media)
+            lwrf = manage_lightwave()
+            logging.info("Sending stop command to lwrf")
+            logging.info(lwrf.stop_screen())
 
     if args.stop:
         l = lakkucast()
