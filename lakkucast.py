@@ -1,6 +1,5 @@
 #!/usr/bin/python
 #credits : https://gist.github.com/TheCrazyT/11263599
-# https://github.com/scsmith/lightwaverf-rb/blob/master/lib/lightwave_rf.rb
 
 import socket
 import ssl
@@ -312,12 +311,11 @@ class manage_lightwave:
 
 class lakkucast_media:
     def __init__(self):
-        #self.media_dirs = ["/data/media/TV-Shows/English/Friends", "/data/media/TV-Shows/English/That 70s Show"]
         self.top_dir = "/data"
         self.top_url = "http://192.168.1.98"
         self.media_dirs = ["media/test/sample1", "media/test/sample2"]
+        #self.media_dirs = ["/data/media/TV-Shows/English/Friends", "/data/media/TV-Shows/English/That 70s Show"]
         self.media_data = "/data/webapps/lakku/lakkucast/media.dat"
-        self.image_dir = "/data/media/Pictures/mypics/album/"
 
     def random_play(self, num_play):
         count_dir = 0
@@ -389,8 +387,8 @@ if __name__ == '__main__':
         logging.info("Sending start command to lwrf")
         logging.info(lwrf.start_screen())
         lwrf.start_screen()
-        time.sleep(5)
         url_list = lm.random_play(num_play)
+        time.sleep(5)
         if url_list != None:
             for u in url_list:
                 l = lakkucast()
