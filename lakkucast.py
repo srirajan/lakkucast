@@ -31,7 +31,7 @@ class lakkucast:
         self.type_bytes = self.type_string
         self.session = 0
         self.play_state = None
-        self.sleep_between_media = 5
+        self.sleep_between_media = 10
         self.content_id = None
         self.socket_fail_count = 100
 
@@ -329,7 +329,7 @@ class lakkucast_media:
         self.top_dir = "/data"
         self.top_url = "http://192.168.1.98"
         #self.media_dirs = ["media/test/sample1", "media/test/sample2"]
-        self.media_dirs = ["media/TV-Shows/English/Friends", "media/TV-Shows/English/That 70s Show"]
+        self.media_dirs = ["media/TV-Shows/English/Friends", "media/TV-Shows/English/That 70s Show", "media/TV-Shows/English/Big Bang Theory"]
         self.media_data = "/data/webapps/lakku/lakkucast/media.dat"
 
     def random_play(self, num_play):
@@ -380,7 +380,8 @@ class lakkucast_media:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="lakkucast")
     parser.add_argument("--play", help="Play x videos ")
-    parser.add_argument("--stop", help="Stop playing and reset", action='store_true')
+    parser.add_argument("--stop", help="Stop playing and shutdown", action='store_true')
+    parser.add_argument("--reset", help="Stop playing", action='store_true')
     parser.add_argument("--reset_media_history", help="Reset media history", action='store_true')
 
     args = parser.parse_args()
@@ -415,6 +416,7 @@ if __name__ == '__main__':
                     logging.info("Playing URL: %s"
                     % (u))
                     l.play_url(u)
+                    time.sleep(300)
                 l.init_status()
                 logging.info(l.get_status())
                 while not l.ready_to_play():
@@ -442,6 +444,13 @@ if __name__ == '__main__':
         lwrf = manage_lightwave()
         logging.info("Sending stop command to lwrf")
         logging.info(lwrf.stop_screen())
+
+    if args.reset:
+        l = lakkucast()
+        l.init_status()
+        logging.info("Calling reset")
+        logging.info(l.get_status())
+        l.play_url("http://192.168.1.98/media/test/water.mp4")
 
 
     if args.reset_media_history:
