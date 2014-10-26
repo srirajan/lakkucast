@@ -31,7 +31,7 @@ class lakkucast:
         self.type_bytes = self.type_string
         self.session = 0
         self.play_state = None
-        self.sleep_between_media = 10
+        self.sleep_between_media = 5
         self.content_id = None
         self.socket_fail_count = 100
 
@@ -150,6 +150,41 @@ class lakkucast:
         if m4 != None:
             #print "contentid:",m4.group("content_id")
             self.content_id = m4.group("content_id")
+
+
+        payloadType = 0 #0=string
+        data = "{MESSAGE_TYPE: 'SET_VOLUME','volume': {'level': 0.2}}"
+        lnData = self.getLenOf(data)
+        #print len(lnData),len(data),lnData.encode("hex")
+        namespace = "urn:x-cast:com.google.cast.tp.connection"
+        msg = pack(">BBBB%dsBB%dsBB%dsBBB%ds%ds" %
+                        (len(self.source_id),
+                         len(self.destination_id), 
+                         len(namespace),
+                         len(lnData),
+                         len(data)), 
+                         self.getType(1,self.type_enum),
+                         self.protocolVersion,
+                         self.getType(2,self.type_string), 
+                         len(self.source_id),
+                         self.source_id,
+                         self.getType(3,self.type_string), 
+                         len(self.destination_id),
+                         self.destination_id,
+                         self.getType(4,self.type_string), 
+                         len(namespace),
+                         namespace,
+                         self.getType(5,self.type_enum), 
+                         payloadType,
+                         self.getType(6,self.type_bytes),
+                         lnData,
+                         data)
+        msg = pack(">I%ds" % (len(msg)),len(msg),msg)
+        #print msg.encode("hex")
+        #print "Connecting ..."
+        self.socket.write(msg)
+
+
 
 
     def get_status(self):
@@ -294,8 +329,43 @@ class lakkucast:
         #print "sending ..."
         #print "LOADING"
         self.socket.write(msg)
+
+        payloadType = 0 #0=string
+        volume = min(max(0, round(0.1, 1)), 1)
+
+        data = "{MESSAGE_TYPE: 'SET_VOLUME','volume': {'level': volume}}"
+        lnData = self.getLenOf(data)
+        #print len(lnData),len(data),lnData.encode("hex")
+        namespace = "urn:x-cast:com.google.cast.tp.connection"
+        msg = pack(">BBBB%dsBB%dsBB%dsBBB%ds%ds" %
+                        (len(self.source_id),
+                         len(self.destination_id), 
+                         len(namespace),
+                         len(lnData),
+                         len(data)), 
+                         self.getType(1,self.type_enum),
+                         self.protocolVersion,
+                         self.getType(2,self.type_string), 
+                         len(self.source_id),
+                         self.source_id,
+                         self.getType(3,self.type_string), 
+                         len(self.destination_id),
+                         self.destination_id,
+                         self.getType(4,self.type_string), 
+                         len(namespace),
+                         namespace,
+                         self.getType(5,self.type_enum), 
+                         payloadType,
+                         self.getType(6,self.type_bytes),
+                         lnData,
+                         data)
+        msg = pack(">I%ds" % (len(msg)),len(msg),msg)
+        #print msg.encode("hex")
+        #print "Connecting ..."
+        self.socket.write(msg)
+
         self.close_connection()
-         
+
         #try:
         # while True:
         #     print "before lastresult"
@@ -394,7 +464,7 @@ if __name__ == '__main__':
     logging.info("Starting lakkucast.")
 
     if args.play:
-        num_play = int(args.play)
+        num_play = int(args.play) * 2
         logging.info("Play count: %s"
                 % (args.play))
  
@@ -403,12 +473,17 @@ if __name__ == '__main__':
         logging.info("Sending start command to lwrf")
         logging.info(lwrf.start_screen())
         lwrf.start_screen()
+        logging.info("Sleeping after lwrf start")
         url_list = lm.random_play(num_play)
+        time.sleep(20)
         if url_list != None:
             logging.info("Got %d urls to play"
                 % (len(url_list)))
             for u in url_list:
+                logging.info("Trying URL: %s"
+                    % (u))
                 l = lakkucast()
+                logging.info("Sleeping before main init")
                 time.sleep(l.sleep_between_media)
                 l.init_status()
                 logging.info(l.get_status())
@@ -416,7 +491,6 @@ if __name__ == '__main__':
                     logging.info("Playing URL: %s"
                     % (u))
                     l.play_url(u)
-                    time.sleep(300)
                 l.init_status()
                 logging.info(l.get_status())
                 while not l.ready_to_play():
